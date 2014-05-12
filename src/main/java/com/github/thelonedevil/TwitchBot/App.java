@@ -1,12 +1,15 @@
 package com.github.thelonedevil.TwitchBot;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -14,7 +17,6 @@ import java.util.regex.Pattern;
 
 import org.pircbotx.Channel;
 import org.pircbotx.Configuration;
-import org.pircbotx.PircBotX;
 import org.pircbotx.User;
 import org.pircbotx.hooks.Listener;
 import org.pircbotx.hooks.ListenerAdapter;
@@ -27,12 +29,14 @@ import org.pircbotx.hooks.events.MessageEvent;
 @SuppressWarnings("rawtypes")
 public class App extends ListenerAdapter implements Listener {
 
-	static PircBotX bot;
+	static CustomBot bot;
 	static Channel channel;
 	private static Database sql = new Database();
 	public static Statement statement;
 	public static Connection connection;
 	List<String> list = new ArrayList<String>();
+	static Listener listener = new App();
+	static boolean stop = false;
 
 	public static void main(String[] args) {
 		/*
@@ -56,18 +60,39 @@ public class App extends ListenerAdapter implements Listener {
 		 * Auto-generated catch block e.printStackTrace(); } catch (IOException
 		 * e) { // TODO Auto-generated catch block e.printStackTrace(); }
 		 */
-		@SuppressWarnings("unchecked")
-		Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(new App()).setServerHostname("irc.twitch.tv")
-				.setServerPassword("oauth:maix34hehqfj1rehor730c8lv2wbuy8").addAutoJoinChannel("#the_lone_devil").buildConfiguration();
-		System.out.println("Bot config built");
-		bot = new PircBotX(configuration);
-
+		String oauth;
 		try {
+			oauth = getOauth();
+			@SuppressWarnings("unchecked")
+			Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(listener).setServerHostname("irc.twitch.tv")
+					.setServerPassword(oauth).addAutoJoinChannel("#the_lone_devil").buildConfiguration();
+			System.out.println("Bot config built");
+			bot = new CustomBot(configuration);
 			bot.startBot();
 		} catch (Exception ex) {
 			System.out.println("error happened");
 			ex.printStackTrace();
 		}
+
+	}
+
+	private static String getOauth() throws IOException {
+		String oauth ="";
+		File config = new File("config.txt");
+		FileInputStream fis = new FileInputStream(config);
+
+		// Construct BufferedReader from InputStreamReader
+		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+
+		String line = null;
+		while ((line = br.readLine()) != null) {
+			if (line.startsWith("oauth:")) {
+				oauth = line;
+			}
+		}
+
+		br.close();
+		return oauth;
 	}
 
 	private boolean isMod(User user, Channel channel) {
@@ -81,7 +106,7 @@ public class App extends ListenerAdapter implements Listener {
 
 	@SuppressWarnings("unchecked")
 	public static void load() throws SQLException, ClassNotFoundException, NullPointerException, IOException {
-		String path = "commands.sqlite";
+		/*String path = "commands.sqlite";
 		File file = new File(path);
 
 		file.createNewFile();
@@ -100,18 +125,6 @@ public class App extends ListenerAdapter implements Listener {
 		 * String>>) yaml.load(ois); } catch (FileNotFoundException e) { // TODO
 		 * Auto-generated catch block e.printStackTrace(); } catch (IOException
 		 * e) { // TODO Auto-generated catch block e.printStackTrace(); }
-		 */
-	}
-
-	public void save(HashMap map) {
-		/*
-		 * Yaml yaml = new Yaml(); String output = yaml.dump(map); File out =
-		 * new File("channelcommands.yaml"); try { ObjectOutputStream oos = new
-		 * ObjectOutputStream(new FileOutputStream(out));
-		 * oos.writeObject(output); oos.flush(); oos.close(); } catch
-		 * (FileNotFoundException e) { // TODO Auto-generated catch block
-		 * e.printStackTrace(); } catch (IOException e) { // TODO Auto-generated
-		 * catch block e.printStackTrace(); }
 		 */
 	}
 
@@ -168,16 +181,16 @@ public class App extends ListenerAdapter implements Listener {
 			}
 			event.respond("Your channel has been added");
 
-		} else if (event.getMessage().equalsIgnoreCase("!stop")) {
+		}
+		if (event.getMessage().equalsIgnoreCase("!stop")) {
 			if (event.getUser().getNick().equalsIgnoreCase("the_lone_devil")) {
 				event.respond("I must go, my people need me!");
-				System.exit(0);
+				bot.stop();
 			} else {
 				event.respond("Only My Owner: The_Lone_Devil can use that command");
 
 			}
-		} else
-
+		}
 		if (event.getMessage().equalsIgnoreCase("!Links")) {
 			if (isMod(event.getUser(), event.getChannel())) {
 				event.getChannel().send().message("The_Lone_Devil's Twitter is: http://www.twitter.com/the_lone_devil; The_Lone_Devil's YouTube is: http://www.youtube.com/thelonedevil1995");
@@ -192,13 +205,13 @@ public class App extends ListenerAdapter implements Listener {
 		}
 		if (event.getMessage().contains("hello ") || event.getMessage().contains("hi ") || event.getMessage().contains("hey ") || event.getMessage().equalsIgnoreCase("hello")
 				|| event.getMessage().equalsIgnoreCase("hi") || event.getMessage().equalsIgnoreCase("hey")) {
-			list.add(event.getUser().getNick());
 			if (!list.contains(event.getUser().getNick())) {
 				event.respond("Welcome to The_Lone_Devil's Channel");
+				list.add(event.getUser().getNick());
 			}
 		}
 		if (event.getMessage().equalsIgnoreCase("!clearWelcomes")) {
-			list.clear();
+			list = new ArrayList<String>();
 		}
 		if (event.getMessage().equalsIgnoreCase("!Support")) {
 			if (isMod(event.getUser(), event.getChannel())) {
@@ -212,7 +225,9 @@ public class App extends ListenerAdapter implements Listener {
 			event.getChannel().send().message("☆*･゜ﾟ･*\\(^O^)/*･゜ﾟ･*☆");
 		}
 		if (event.getMessage().equalsIgnoreCase("!dualTrunkswd")) {
-			event.getChannel().send().message("http://kbmod.com/multistream/view/?s0=The_lone_devil&s1=trunkswd&layout=4");
+			if (isMod(event.getUser(), event.getChannel())) {
+				event.getChannel().send().message("http://kbmod.com/multistream/view/?s0=The_lone_devil&s1=trunkswd&layout=4");
+			}
 		}
 		if (event.getMessage().equalsIgnoreCase("!Hive")) {
 			if (isMod(event.getUser(), event.getChannel())) {
@@ -227,7 +242,7 @@ public class App extends ListenerAdapter implements Listener {
 				event.getChannel()
 						.send()
 						.message(
-								"The_Lone_Devil is playing on The Mineplex minigame server, to join please connect to us.mineplex.com, and join to lobby 35. If there is space in the party, post your IGN in chat and you may be added to the paryt");
+								"The_Lone_Devil is playing on The Mineplex minigame server, to join please connect to us.mineplex.com, and join lobby 35. If there is space in the party, post your IGN in chat and you may be added to the party");
 			}
 		}
 		if (event.getMessage().equalsIgnoreCase("!Shotbow")) {
@@ -259,24 +274,54 @@ public class App extends ListenerAdapter implements Listener {
 				event.getChannel().send().message("The_Lone_Devil is playing on The Glittercraft server, unfortunately this is a whitelisted server for Subscribers of the Broadcaster Aureylian");
 			}
 		}
+		if (event.getMessage().equalsIgnoreCase("!wynncraft")) {
+			if (isMod(event.getUser(), event.getChannel())) {
+				event.getChannel()
+						.send()
+						.message(
+								"The_Lone_Devil is playing on The Wynncraft server, You are free to come and join. The world that we are connected to will be posted in chat either by The_Lone_Devil or another mod.");
+			}
+		}
+
+		if (event.getMessage().equalsIgnoreCase("!as")) {
+			if (isMod(event.getUser(), event.getChannel())) {
+				event.getChannel()
+						.send()
+						.message(
+								"The_Lone_Devil is playing Agrarian Skies, it is on a private server, so no you can not join (sorry) Agrarian Skies is a mod pack on the FTB launcher, http://feed-the-beast.com/");
+			}
+		}
+		if (event.getMessage().equalsIgnoreCase("!steam")) {
+			if (isMod(event.getUser(), event.getChannel())) {
+				event.getChannel().send().message("The_Lone_Devil is currently not accepting steam friend requests");
+			}
+		}
+		if (event.getMessage().equalsIgnoreCase("!origin")) {
+			if (isMod(event.getUser(), event.getChannel())) {
+				event.getChannel().send().message("The_Lone_Devil is currently not accepting origin friend requests");
+			}
+		}
 
 		// timeouts
 		if (!isMod(event.getUser(), channel)) {
 			if (event.getMessage().contains(" ")) {
 				String[] message = event.getMessage().split(" ");
-				for (int i = 0; !message[i].isEmpty(); i++) {
+				int i = 0;
+				int s = message.length;
+				while (i < s) {
 					Pattern pattern = Pattern.compile("(?:(())(www\\.([^/?#\\s]*))|((http(s)?|ftp):)(//([^/?#\\s]*)))([^?#\\s]*)(\\?([^#\\s]*))?(#([^\\s]*))?");
-					Pattern pattern1 = Pattern.compile("^[a-zA-Z0-9\\-\\.]+\\.(com|org|net|mil|edu|co.uk|be|ly|tk|COM|ORG|NET|MIL|EDU|CO.UK|TK|BE|LY)$");
-					Matcher matcher = pattern.matcher(event.getMessage());
-					Matcher matcher1 = pattern1.matcher(event.getMessage());
+					Pattern pattern1 = Pattern.compile("^[a-zA-Z0-9\\-\\.]+\\.(com|org|net|mil|edu|co.uk|be|ly|tk|COM|ORG|NET|MIL|EDU|CO.UK|TK|BE|LY)$*");
+					Matcher matcher = pattern.matcher(message[i]);
+					Matcher matcher1 = pattern1.matcher(message[i]);
 					if (matcher.find() || matcher1.find()) {
 						event.respond("That is a link, and you are not a Mod, so stop posting it");
 						event.getChannel().send().message("/timeout " + event.getUser().getNick() + " 1");
 					}
+					i++;
 				}
 			} else {
 				Pattern pattern = Pattern.compile("(?:(())(www\\.([^/?#\\s]*))|((http(s)?|ftp):)(//([^/?#\\s]*)))([^?#\\s]*)(\\?([^#\\s]*))?(#([^\\s]*))?");
-				Pattern pattern1 = Pattern.compile("^[a-zA-Z0-9\\-\\.]+\\.(com|org|net|mil|edu|co.uk|be|ly|tk|COM|ORG|NET|MIL|EDU|CO.UK|TK|BE|LY)$");
+				Pattern pattern1 = Pattern.compile("^[a-zA-Z0-9\\-\\.]+\\.(com|org|net|mil|edu|co.uk|be|ly|tk|COM|ORG|NET|MIL|EDU|CO.UK|TK|BE|LY)$*");
 				Matcher matcher = pattern.matcher(event.getMessage());
 				Matcher matcher1 = pattern1.matcher(event.getMessage());
 				if (matcher.find() || matcher1.find()) {
