@@ -1,21 +1,5 @@
 package com.github.thelonedevil.TwitchBot;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.pircbotx.Channel;
 import org.pircbotx.Configuration;
 import org.pircbotx.User;
@@ -24,16 +8,25 @@ import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.yaml.snakeyaml.Yaml;
 
+import java.io.*;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.LogManager;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Hello world!
- * 
  */
 @SuppressWarnings("rawtypes")
 public class App extends ListenerAdapter implements Listener {
 
 	static CustomBot bot;
 	static Channel channel;
-	private static Database sql = new Database();
 	public static Statement statement;
 	public static Connection connection;
 	List<String> list = new ArrayList<String>();
@@ -41,6 +34,8 @@ public class App extends ListenerAdapter implements Listener {
 	static Listener listener = new App();
 	static boolean stop = false;
 	static Map<String, Map<String, Map<String, String>>> commands;
+    //static Map<String,List<String>> mods;
+    String stopMessage = "My Master has ordered me to take some time off. I believe this is so My Master can bring in the exterminator. As such i will be leaving now, and will be back once My Master is done.";
 
 	public static void main(String[] args) {
 
@@ -48,8 +43,8 @@ public class App extends ListenerAdapter implements Listener {
 		try {
 			oauth = getOauth();
 			@SuppressWarnings("unchecked")
-			Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(listener).setServerHostname("irc.twitch.tv")
-					.setServerPassword(oauth).addAutoJoinChannel("#the_lone_devil").buildConfiguration();
+			Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(listener).setServerHostname("server")
+					.setServerPort(65535).setServerPassword("Lone_Bot/Twitch:" + oauth).addAutoJoinChannel("#the_lone_devil").addAutoJoinChannel("#lone_bot").buildConfiguration();
 			System.out.println("Bot config built");
 			reload();
 			bot = new CustomBot(configuration);
@@ -70,7 +65,7 @@ public class App extends ListenerAdapter implements Listener {
 		String line = null;
 		while ((line = br.readLine()) != null) {
 			if (line.startsWith("oauth:")) {
-				oauth = line;
+				oauth = line.substring(6);
 			}
 		}
 
@@ -84,12 +79,18 @@ public class App extends ListenerAdapter implements Listener {
 		File command = new File("commands.yml");
 		FileInputStream ios = new FileInputStream(command);
 		commands = (Map<String, Map<String, Map<String, String>>>) yaml.load(ios);
-		System.out.println(commands.toString());
+        ios.close();
+
+       /* File mod = new File("mods.yml");
+        ios = new FileInputStream(mod);
+        mods =  (Map<String,List<String>>)yaml.load(ios);
+        // System.out.println(commands.toString());*/
 	}
 
 	private boolean isMod(User user, Channel channel) {
 		Set channels = user.getChannelsOpIn();
-		if (channels.contains(channel)) {
+        //List mods1 = mods.get(channel.getName());
+		if (channels.contains(channel)/*|| mods1.contains(user.getNick())*/) {
 			return true;
 		} else
 			return false;
@@ -108,19 +109,52 @@ public class App extends ListenerAdapter implements Listener {
 				Map<String, Map<String, String>> mod = commands.get(channel1.replace("#", ""));
 				if (isMod(event.getUser(), event.getChannel())) {
 					// mods do all commands
-					if (mod.get("mod").containsKey(event.getMessage().replace("!", ""))) {
-						event.getChannel().send().message(mod.get("mod").get(event.getMessage().replace("!", "")).replace("%user%", event.getUser().getNick()));
-					} else if (mod.get("user").containsKey(event.getMessage().replace("!", ""))) {
-						event.getChannel().send().message(mod.get("user").get(event.getMessage().replace("!", "")).replace("%user%", event.getUser().getNick()));
+					if (mod.get("mod").containsKey(event.getMessage().replace("!", "").split(" ")[0])) {
+                        String message = mod.get("mod").get(event.getMessage().replace("!", "").split(" ")[0]);
+                        if(message.contains("%user%")){
+                            message = message.replace("%user%", event.getUser().getNick());
+                        }
+                        if(message.contains("%touser%")){
+                            message = message.replace("%touser%", event.getMessage().split(" ")[1]);
+                        }
+						event.getChannel().send().message(message);
+					} else if (mod.get("user").containsKey(event.getMessage().replace("!", "").split(" ")[0])) {
+                        String message = mod.get("user").get(event.getMessage().replace("!", "").split(" ")[0]);
+                        if(message.contains("%user%")){
+                            message = message.replace("%user%", event.getUser().getNick());
+                        }
+                        if(message.contains("%touser%")){
+                            message = message.replace("%touser%", event.getMessage().split(" ")[1]);
+                        }
+                        event.getChannel().send().message(message);
 					}
 				} else if (!isMod(event.getUser(), event.getChannel())) {
 					// non mod can do user commands
-					if (mod.get("user").containsKey(event.getMessage().replace("!", ""))) {
-						event.getChannel().send().message(mod.get("user").get(event.getMessage().replace("!", "")).replace("%user%", event.getUser().getNick()));
+					if (mod.get("user").containsKey(event.getMessage().replace("!", "").split(" ")[0])) {
+                        String message = mod.get("user").get(event.getMessage().replace("!", "").split(" ")[0]);
+                        if(message.contains("%user%")){
+                            message = message.replace("%user%", event.getUser().getNick());
+                        }
+                        if(message.contains("%touser%")){
+                            message = message.replace("%touser%", event.getMessage().split(" ")[1]);
+                        }
+                        event.getChannel().send().message(message);
 					}
 				}
 			}
 		} else {
+			if (event.getMessage().equalsIgnoreCase("?commands")) {
+				if (isMod(event.getUser(), event.getChannel())) {
+                    event.respond("The command list is not available at this time");
+				}
+			}
+			if (event.getChannel().getName().equalsIgnoreCase("#lone_bot")) {
+				if (event.getMessage().startsWith("?join")) {
+					String name = event.getUser().getNick();
+                    bot.sendIRC().joinChannel("#"+name);
+				}
+			}
+
 			if (event.getMessage().startsWith("?dual")) {
 				String name = event.getMessage().split(" ")[1];
 				String url = "http://kbmod.com/multistream/view/?s0=the_lone_devil&s1=" + name + "&layout=4";
@@ -147,7 +181,11 @@ public class App extends ListenerAdapter implements Listener {
 			}
 			if (event.getMessage().equalsIgnoreCase("?stop")) {
 				if (event.getUser().getNick().equalsIgnoreCase("the_lone_devil")) {
-					event.respond("I must go, my people need me!");
+					//event.respond("I must go, my people need me!");
+                    Set<Channel> channels = event.getBot().getUserChannelDao().getChannels(event.getBot().getUserBot());
+                    for (Channel ch : channels){
+                        ch.send().message(stopMessage);
+                    }
 					bot.stop();
 				} else {
 					event.respond("Only My Owner: The_Lone_Devil can use that command");
@@ -164,15 +202,17 @@ public class App extends ListenerAdapter implements Listener {
 			if (event.getMessage().equalsIgnoreCase("?help?")) {
 				if (isMod(event.getUser(), event.getChannel())) {
 					event.respond("go help yourself");
-				} else {
+				} else if (!userlist.contains(event.getUser().getNick())) {
 					event.respond("no.");
 					userlist.add(event.getUser().getNick());
 				}
 			}
-			if (event.getMessage().contains("hello ") || event.getMessage().contains("hi ") || event.getMessage().contains("hey ") || event.getMessage().equalsIgnoreCase("hello")
-					|| event.getMessage().equalsIgnoreCase("hi") || event.getMessage().equalsIgnoreCase("hey")) {
+			if (event.getMessage().contains("hello ") || event.getMessage().contains("hi ") || event.getMessage().contains("hey ") || event.getMessage().contains("Hello ")
+					|| event.getMessage().contains("Hi ") || event.getMessage().contains("Hey ") || event.getMessage().equalsIgnoreCase("hello") || event.getMessage().equalsIgnoreCase("hi")
+					|| event.getMessage().equalsIgnoreCase("hey") || event.getMessage().contains("hello!") || event.getMessage().contains("hi!") || event.getMessage().contains("hey!")
+					|| event.getMessage().contains("Hello!") || event.getMessage().contains("Hi!") || event.getMessage().contains("Hey!")) {
 				if (!list.contains(event.getUser().getNick())) {
-					event.respond("Welcome to The_Lone_Devil's Channel");
+					event.respond("Welcome to "+event.getChannel().getName()+"'s Channel");
 					list.add(event.getUser().getNick());
 				}
 			}
@@ -193,7 +233,7 @@ public class App extends ListenerAdapter implements Listener {
 						Matcher matcher1 = pattern1.matcher(message[i]);
 						if (matcher.find() || matcher1.find()) {
 							event.respond("That is a link, and you are not a Mod, so stop posting it");
-							event.getChannel().send().message("/timeout " + event.getUser().getNick() + " 1");
+							event.getChannel().send().message(".timeout " + event.getUser().getNick() + " 1");
 						}
 						i++;
 					}
@@ -204,7 +244,7 @@ public class App extends ListenerAdapter implements Listener {
 					Matcher matcher1 = pattern1.matcher(event.getMessage());
 					if (matcher.find() || matcher1.find()) {
 						event.respond("That is a link, and you are not a Mod, so stop posting it");
-						event.getChannel().send().message("/timeout " + event.getUser().getNick() + " 1");
+						event.getChannel().send().message(".timeout " + event.getUser().getNick() + " 1");
 					} else {
 
 					}
@@ -213,9 +253,4 @@ public class App extends ListenerAdapter implements Listener {
 		}
 
 	}
-
-	public static void shutdown() {
-		System.exit(0);
-	}
-
 }
