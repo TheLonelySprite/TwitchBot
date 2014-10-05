@@ -1,14 +1,17 @@
 package com.github.thelonedevil.TwitchBot;
 
+
 import org.pircbotx.Channel;
 import org.pircbotx.Configuration;
 import org.pircbotx.User;
 import org.pircbotx.hooks.Listener;
 import org.pircbotx.hooks.ListenerAdapter;
+import org.pircbotx.hooks.events.JoinEvent;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -36,11 +39,12 @@ public class App extends ListenerAdapter implements Listener {
         try {
             oauth = getOauth();
             @SuppressWarnings("unchecked")
-            Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(listener).setServerHostname("server")
-                    .setServerPort(65535).setServerPassword("Lone_Bot/Twitch:" + oauth).addAutoJoinChannel("#the_lone_devil").addAutoJoinChannel("#lone_bot").buildConfiguration();
+            Configuration<?> configuration = new Configuration.Builder().setName("Lone_Bot").setAutoNickChange(false).setCapEnabled(false).addListener(listener).setServerHostname("irc.twitch.tv")
+                    .setServerPort(6667).setServerPassword(oauth).addAutoJoinChannel("#the_lone_devil").addAutoJoinChannel("#lone_bot").setEncoding(Charset.forName("UTF-8")).buildConfiguration();
             System.out.println("Bot config built");
             reload();
             bot = new CustomBot(configuration);
+
             bot.startBot();
         } catch (Exception ex) {
             System.out.println("error happened");
@@ -58,7 +62,7 @@ public class App extends ListenerAdapter implements Listener {
         String line = null;
         while ((line = br.readLine()) != null) {
             if (line.startsWith("oauth:")) {
-                oauth = line.substring(6);
+                oauth = line;
             }
         }
 
@@ -137,6 +141,7 @@ public class App extends ListenerAdapter implements Listener {
                 if (event.getChannel().getName().equalsIgnoreCase("#lone_bot")) {
                     String name = event.getUser().getNick();
                     bot.sendIRC().joinChannel("#" + name);
+                    bot.getUserChannelDao().getChannel("#"+name).send().message("Hi I am LoneBot, you appear to require my assistance in moderating the chat of this channel. I am happy to be of service");
                 }
             } else if (event.getMessage().split(" ")[0].equalsIgnoreCase("!stop")) {
                 if (event.getUser().getNick().equalsIgnoreCase("the_lone_devil")) {
@@ -162,9 +167,15 @@ public class App extends ListenerAdapter implements Listener {
                 }
                 event.getChannel().send().message(message);
             } else if (event.getMessage().split(" ")[0].equalsIgnoreCase("!riot")) {
-                String message = " ༼ つ ◕_◕ ༽つ " + event.getMessage().substring(6) + " OR RIOT ༼ つ ◕_◕ ༽つ";
+                String message = "༼ つ ◕_◕ ༽つ " + event.getUser().getNick().toUpperCase()+ " OR RIOT ༼ つ ◕_◕ ༽つ";
+                if(event.getMessage().split(" ").length > 1) {
+                     message = " ༼ つ ◕_◕ ༽つ " + event.getMessage().substring(6).toUpperCase() + " OR RIOT ༼ つ ◕_◕ ༽つ";
+                }
                 event.getChannel().send().message(message);
-            } else if (commands.containsKey(event.getChannel().getName().replace("#", ""))) {
+            }else if(event.getMessage().split(" ")[0].equalsIgnoreCase("!dongers")){
+                String message = "ヽ༼ຈل͜ຈ༽ﾉ RAISE YOUR DONGERSヽ༼ຈل͜ຈ༽ﾉ";
+                event.getChannel().send().message(message);
+            }else if (commands.containsKey(event.getChannel().getName().replace("#", ""))) {
                 // commands for channel
                 Map<String, Map<String, String>> mod = commands.get(channel1.replace("#", ""));
                 if (isMod(event.getUser(), event.getChannel())) {
